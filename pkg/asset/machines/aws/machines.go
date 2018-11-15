@@ -75,7 +75,7 @@ func provider(clusterID, clusterName string, platform *aws.Platform, mpool *aws.
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create awsprovider.TagSpecifications from UserTags")
 	}
-	return &awsprovider.AWSMachineProviderConfig{
+	providerConfig := &awsprovider.AWSMachineProviderConfig{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "aws.cluster.k8s.io/v1alpha1",
 			Kind:       "AWSMachineProviderConfig",
@@ -98,7 +98,22 @@ func provider(clusterID, clusterName string, platform *aws.Platform, mpool *aws.
 				Values: []string{fmt.Sprintf("%s_%s_sg", clusterName, role)},
 			}},
 		}},
-	}, nil
+	}
+	if role == "master" {
+		public := true
+		providerConfig.PublicIP = &public
+		providerConfig.LoadBalancers = []awsprovider.LoadBalancerReference{
+			{
+				Name: fmt.Sprintf("%s-ext", clusterName),
+				Type: awsprovider.NetworkLoadBalancerType,
+			},
+			{
+				Name: fmt.Sprintf("%s-int", clusterName),
+				Type: awsprovider.NetworkLoadBalancerType,
+			},
+		}
+	}
+	return providerConfig, nil
 }
 
 func tagsFromUserTags(clusterID, clusterName string, usertags map[string]string) ([]awsprovider.TagSpecification, error) {
