@@ -197,6 +197,7 @@ func (m *Master) Generate(dependencies asset.Parents) error {
 	if ic.SSHKey != "" {
 		machineConfigs = append(machineConfigs, machineconfig.ForAuthorizedKeys(ic.SSHKey, "master"))
 	}
+	machineConfigs = append(machineConfigs, machineconfig.GCPRoutesService("master"))
 	m.MachineConfigFiles, err = machineconfig.Manifests(machineConfigs, "master", directory)
 	if err != nil {
 		return errors.Wrap(err, "failed to create MachineConfig manifests for master machines")

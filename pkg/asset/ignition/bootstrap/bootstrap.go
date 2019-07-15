@@ -274,6 +274,7 @@ func (a *Bootstrap) addStorageFiles(base string, uri string, templateData *boots
 
 func (a *Bootstrap) addSystemdUnits(uri string, templateData *bootstrapTemplateData) (err error) {
 	enabled := map[string]struct{}{
+		"gcp-routes2.service":             {},
 		"progress.service":                {},
 		"kubelet.service":                 {},
 		"chown-gatewayd-key.service":      {},

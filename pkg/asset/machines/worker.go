@@ -143,6 +143,7 @@ func (w *Worker) Generate(dependencies asset.Parents) error {
 		if ic.SSHKey != "" {
 			machineConfigs = append(machineConfigs, machineconfig.ForAuthorizedKeys(ic.SSHKey, "worker"))
 		}
+		machineConfigs = append(machineConfigs, machineconfig.GCPRoutesService("worker"))
 
 		switch ic.Platform.Name() {
 		case awstypes.Name:

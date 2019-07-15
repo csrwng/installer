@@ -1,0 +1,13 @@
+[Unit]
+Description=Update GCP routes for forwarded IPs. (2)
+ConditionKernelCommandLine=ignition.platform.id=gce
+
+[Service]
+Type=simple
+ExecStart=/bin/bash /usr/local/bin/gcp-routes.sh
+User=root
+RestartSec=30
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
