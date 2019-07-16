@@ -107,6 +107,9 @@ func (o *ClusterUninstaller) deleteInstanceGroup(ig nameAndZone) error {
 	if err != nil && !isNoOp(err) {
 		return errors.Wrapf(err, "failed to delete instance group %s in zone %s", ig.name, ig.zone)
 	}
+	if err == nil {
+		o.Logger.Infof("Deleted instance group %s in zone %s", ig.name, ig.zone)
+	}
 	return nil
 }
 
@@ -160,6 +163,9 @@ func (o *ClusterUninstaller) deleteComputeInstance(instance nameAndZone) error {
 	if err != nil && !isNoOp(err) {
 		return errors.Wrapf(err, "failed to delete instance %s in zone %s", instance.name, instance.zone)
 	}
+	if err == nil {
+		o.Logger.Infof("Deleted compute instance %s in zone %s", instance.name, instance.zone)
+	}
 	return nil
 }
 
@@ -205,6 +211,9 @@ func (o *ClusterUninstaller) deleteImage(name string) error {
 	_, err := o.computeSvc.Images.Delete(o.ProjectID, name).Context(ctx).Do()
 	if err != nil && !isNoOp(err) {
 		return errors.Wrapf(err, "failed to delete image %s", name)
+	}
+	if err == nil {
+		o.Logger.Infof("Deleted image %s", name)
 	}
 	return nil
 }

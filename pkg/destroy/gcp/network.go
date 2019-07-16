@@ -47,6 +47,9 @@ func (o *ClusterUninstaller) deleteFirewall(name string) error {
 	if err != nil && !isNoOp(err) {
 		return errors.Wrapf(err, "failed to delete firewall %s", name)
 	}
+	if err == nil {
+		o.Logger.Infof("Deleted firewall %s", name)
+	}
 	return nil
 }
 
@@ -93,6 +96,9 @@ func (o *ClusterUninstaller) deleteAddress(name string) error {
 	if err != nil && !isNoOp(err) {
 		return errors.Wrapf(err, "failed to delete address %s", name)
 	}
+	if err == nil {
+		o.Logger.Infof("Deleted address %s", name)
+	}
 	return nil
 }
 
@@ -138,6 +144,9 @@ func (o *ClusterUninstaller) deleteForwardingRule(name string) error {
 	_, err := o.computeSvc.ForwardingRules.Delete(o.ProjectID, o.Region, name).Context(ctx).Do()
 	if err != nil && !isNoOp(err) {
 		return errors.Wrapf(err, "failed to delete forwarding rule %s", name)
+	}
+	if err == nil {
+		o.Logger.Infof("Deleted forwarding rule %s", name)
 	}
 	return nil
 }
@@ -197,6 +206,9 @@ func (o *ClusterUninstaller) deleteBackendService(name string) error {
 	_, err := o.computeSvc.RegionBackendServices.Delete(o.ProjectID, o.Region, name).Context(ctx).Do()
 	if err != nil && !isNoOp(err) {
 		return errors.Wrapf(err, "failed to delete backend service %s", name)
+	}
+	if err == nil {
+		o.Logger.Infof("Deleted backend service %s", name)
 	}
 	return nil
 }
@@ -290,6 +302,9 @@ func (o *ClusterUninstaller) deleteHTTPHealthCheck(name string) error {
 	if err != nil && !isNoOp(err) {
 		return errors.Wrapf(err, "failed to delete HTTP health check %s", name)
 	}
+	if err == nil {
+		o.Logger.Infof("Deleted HTTP health check %s", name)
+	}
 	return nil
 }
 
@@ -345,6 +360,9 @@ func (o *ClusterUninstaller) deleteTargetPool(name string) error {
 	if err != nil && !isNoOp(err) {
 		return errors.Wrapf(err, "failed to delete target pool %s", name)
 	}
+	if err == nil {
+		o.Logger.Infof("Deleted target pool %s", name)
+	}
 	return nil
 }
 
@@ -391,6 +409,9 @@ func (o *ClusterUninstaller) deleteSubNetwork(name string) error {
 	_, err := o.computeSvc.Subnetworks.Delete(o.ProjectID, o.Region, name).Context(ctx).Do()
 	if err != nil && !isNoOp(err) {
 		return errors.Wrapf(err, "failed to delete subnetwork %s", name)
+	}
+	if err == nil {
+		o.Logger.Infof("Deleted subnetwork %s", name)
 	}
 	return nil
 }
@@ -440,6 +461,9 @@ func (o *ClusterUninstaller) deleteNetwork(name string) error {
 	_, err := o.computeSvc.Networks.Delete(o.ProjectID, name).Context(ctx).Do()
 	if err != nil && !isNoOp(err) {
 		return errors.Wrapf(err, "failed to delete network %s", name)
+	}
+	if err == nil {
+		o.Logger.Infof("Deleted network %s", name)
 	}
 	return nil
 }
@@ -506,6 +530,9 @@ func (o *ClusterUninstaller) deleteRoute(name string) error {
 	if err != nil && !isNoOp(err) {
 		return errors.Wrapf(err, "failed to delete route %s", name)
 	}
+	if err == nil {
+		o.Logger.Infof("Deleted route %s", name)
+	}
 	return nil
 }
 
@@ -551,6 +578,9 @@ func (o *ClusterUninstaller) deleteRouter(name string) error {
 	_, err := o.computeSvc.Routers.Delete(o.ProjectID, o.Region, name).Context(ctx).Do()
 	if err != nil && !isNoOp(err) {
 		return errors.Wrapf(err, "failed to delete router %s", name)
+	}
+	if err == nil {
+		o.Logger.Infof("Deleted router %s", name)
 	}
 	return nil
 }
