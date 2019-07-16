@@ -103,30 +103,39 @@ func (o *ClusterUninstaller) deleteInstanceGroup(ig nameAndZone) error {
 	ctx, cancel := o.contextWithTimeout()
 	defer cancel()
 	o.Logger.Debugf("Deleting instance group %s in zone %s", ig.name, ig.zone)
-	_, err := o.computeSvc.InstanceGroups.Delete(o.ProjectID, ig.zone, ig.name).Context(ctx).Do()
+	resp, err := o.computeSvc.InstanceGroups.Delete(o.ProjectID, ig.zone, ig.name).RequestId(o.requestID("instancegroup", ig.zone, ig.name)).Context(ctx).Do()
 	if err != nil && !isNoOp(err) {
+		o.resetRequest("instancegroup", ig.zone, ig.name)
 		return errors.Wrapf(err, "failed to delete instance group %s in zone %s", ig.name, ig.zone)
 	}
-	if err == nil {
-		o.Logger.Infof("Deleted instance group %s in zone %s", ig.name, ig.zone)
+	if resp.Status == "DONE" && isErrorStatus(resp.HttpErrorStatusCode) {
+		o.resetRequest("instancegroup", ig.zone, ig.name)
+		return errors.Errorf("failed to delete instance group %s in zone %s with code: %d", ig.name, ig.zone, resp.HttpErrorStatusCode)
 	}
 	return nil
 }
 
 // destroyInstanceGroups removes any instance group with a name that starts with
 // the cluster's infra ID.
-func (o *ClusterUninstaller) destroyInstanceGroups() error {
+func (o *ClusterUninstaller) destroyInstanceGroups() (bool, []error) {
 	instanceGroups, err := o.listInstanceGroups()
 	if err != nil {
-		return err
+		return false, []error{err}
 	}
+	errs := []error{}
+	found := []string{}
 	for _, ig := range instanceGroups {
+		found = append(found, fmt.Sprintf("%s/%s", ig.zone, ig.name))
 		err := o.deleteInstanceGroup(ig)
 		if err != nil {
-			return err
+			errs = append(errs, err)
 		}
 	}
-	return nil
+	deletedItems := o.getDeletedItems("instancegroup", found)
+	for _, item := range deletedItems {
+		o.Logger.Infof("Deleted instance group %s", item)
+	}
+	return len(found) > 0, errs
 }
 
 func (o *ClusterUninstaller) listComputeInstances() ([]nameAndZone, error) {
@@ -159,30 +168,39 @@ func (o *ClusterUninstaller) deleteComputeInstance(instance nameAndZone) error {
 	ctx, cancel := o.contextWithTimeout()
 	defer cancel()
 	o.Logger.Debugf("Deleting compute instance %s in zone %s", instance.name, instance.zone)
-	_, err := o.computeSvc.Instances.Delete(o.ProjectID, instance.zone, instance.name).Context(ctx).Do()
+	resp, err := o.computeSvc.Instances.Delete(o.ProjectID, instance.zone, instance.name).RequestId(o.requestID("instance", instance.zone, instance.name)).Context(ctx).Do()
 	if err != nil && !isNoOp(err) {
+		o.resetRequest("instance", instance.zone, instance.name)
 		return errors.Wrapf(err, "failed to delete instance %s in zone %s", instance.name, instance.zone)
 	}
-	if err == nil {
-		o.Logger.Infof("Deleted compute instance %s in zone %s", instance.name, instance.zone)
+	if resp.Status == "DONE" && isErrorStatus(resp.HttpErrorStatusCode) {
+		o.resetRequest("instance", instance.zone, instance.name)
+		return errors.Errorf("failed to delete instance %s in zone %s with code: %d", instance.name, instance.zone, resp.HttpErrorStatusCode)
 	}
 	return nil
 }
 
 // destroyComputeInstances searches for instances across all zones that have a name that starts with
 // the infra ID prefix and are not yet terminated. It then deletes each instance found.
-func (o *ClusterUninstaller) destroyComputeInstances() error {
+func (o *ClusterUninstaller) destroyComputeInstances() (bool, []error) {
 	instances, err := o.listComputeInstances()
 	if err != nil {
-		return err
+		return false, []error{err}
 	}
+	errs := []error{}
+	found := []string{}
 	for _, instance := range instances {
+		found = append(found, fmt.Sprintf("%s/%s", instance.zone, instance.name))
 		err := o.deleteComputeInstance(instance)
 		if err != nil {
-			return err
+			errs = append(errs, err)
 		}
 	}
-	return nil
+	deletedItems := o.getDeletedItems("computeinstance", found)
+	for _, item := range deletedItems {
+		o.Logger.Infof("Deleted instance %s", item)
+	}
+	return len(found) > 0, errs
 }
 
 func (o *ClusterUninstaller) listImages() ([]string, error) {
@@ -208,28 +226,37 @@ func (o *ClusterUninstaller) deleteImage(name string) error {
 	o.Logger.Debugf("Deleting image %s", name)
 	ctx, cancel := o.contextWithTimeout()
 	defer cancel()
-	_, err := o.computeSvc.Images.Delete(o.ProjectID, name).Context(ctx).Do()
+	resp, err := o.computeSvc.Images.Delete(o.ProjectID, name).Context(ctx).RequestId(o.requestID("image", name)).Do()
 	if err != nil && !isNoOp(err) {
+		o.resetRequest("image", name)
 		return errors.Wrapf(err, "failed to delete image %s", name)
 	}
-	if err == nil {
-		o.Logger.Infof("Deleted image %s", name)
+	if resp.Status == "DONE" && isErrorStatus(resp.HttpErrorStatusCode) {
+		o.resetRequest("image", name)
+		return errors.Errorf("failed to delete image %s with code: %d", name, resp.HttpErrorStatusCode)
 	}
 	return nil
 }
 
 // destroyImages removes all image resources with a name prefixed by the
 // cluster's infra ID
-func (o *ClusterUninstaller) destroyImages() error {
+func (o *ClusterUninstaller) destroyImages() (bool, []error) {
 	images, err := o.listImages()
 	if err != nil {
-		return err
+		return false, []error{err}
 	}
+	errs := []error{}
+	found := []string{}
 	for _, image := range images {
+		found = append(found, image)
 		err := o.deleteImage(image)
 		if err != nil {
-			return err
+			errs = append(errs, err)
 		}
 	}
-	return nil
+	deletedImages := o.getDeletedItems("image", found)
+	for _, item := range deletedImages {
+		o.Logger.Infof("Deleted image %s", item)
+	}
+	return len(found) > 0, errs
 }

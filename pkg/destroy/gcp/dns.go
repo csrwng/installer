@@ -49,9 +49,7 @@ func (o *ClusterUninstaller) deleteDNSZone(name string) error {
 	if err != nil && !isNoOp(err) {
 		return errors.Wrapf(err, "failed to delete DNS zone %s", name)
 	}
-	if err == nil {
-		o.Logger.Infof("Deleted DNS zone %s", name)
-	}
+	o.Logger.Infof("Deleted DNS zone %s", name)
 	return nil
 }
 
@@ -84,12 +82,14 @@ func (o *ClusterUninstaller) deleteDNSZoneRecordSets(zoneName string, zoneDomain
 	ctx, cancel := o.contextWithTimeout()
 	defer cancel()
 	o.Logger.Debugf("Deleting %d recordset(s) in zone %s", len(change.Deletions), zoneName)
-	_, err := o.dnsSvc.Changes.Create(o.ProjectID, zoneName, change).Context(ctx).Do()
+	resp, err := o.dnsSvc.Changes.Create(o.ProjectID, zoneName, change).ClientOperationId(o.requestID("recordsets", zoneName)).Context(ctx).Do()
 	if err != nil && !isNoOp(err) {
+		o.resetRequest("recordsets", zoneName)
 		return errors.Wrapf(err, "failed to delete DNS zone %s recordsets", zoneName)
 	}
-	if err == nil {
-		o.Logger.Infof("Deleted %d recordsets(s) from DNS zone %s", len(change.Deletions), zoneName)
+	if isErrorStatus(int64(resp.ServerResponse.HTTPStatusCode)) {
+		o.resetRequest("recordsets", zoneName)
+		return errors.Errorf("failed to delete DNS zone %s recordsets with code: %d", zoneName, resp.ServerResponse.HTTPStatusCode)
 	}
 	return nil
 }
@@ -144,40 +144,40 @@ func (o *ClusterUninstaller) getMatchingRecordSets(parentRecords, childRecords [
 // from the private zone are matched to records in the parent zone (by using type
 // and name for each record). Matching records are removed from the public zone.
 // Finally all records are removed from the private zone and the private zone is removed.
-func (o *ClusterUninstaller) destroyDNS() error {
+func (o *ClusterUninstaller) destroyDNS() (bool, []error) {
 	privateZone, publicZones, err := o.listDNSZones()
 	if err != nil {
-		return err
+		return false, []error{err}
 	}
 	if privateZone == nil {
 		o.Logger.Debugf("Private DNS zone not found")
-		return nil
+		return false, nil
 	}
 
 	zoneRecordSets, err := o.listDNSZoneRecordSets(privateZone.name)
 	if err != nil {
-		return err
+		return false, []error{err}
 	}
 
 	parentZone := getParentDNSZone(privateZone.domain, publicZones, o.Logger)
 	if parentZone != nil {
 		parentRecordSets, err := o.listDNSZoneRecordSets(parentZone.name)
 		if err != nil {
-			return err
+			return false, []error{err}
 		}
 		matchingRecordSets := o.getMatchingRecordSets(parentRecordSets, zoneRecordSets)
 		err = o.deleteDNSZoneRecordSets(parentZone.name, parentZone.domain, matchingRecordSets)
 		if err != nil {
-			return err
+			return false, []error{err}
 		}
 	}
 	err = o.deleteDNSZoneRecordSets(privateZone.name, privateZone.domain, zoneRecordSets)
 	if err != nil {
-		return err
+		return false, []error{err}
 	}
 	err = o.deleteDNSZone(privateZone.name)
 	if err != nil {
-		return err
+		return false, []error{err}
 	}
-	return nil
+	return true, nil
 }

@@ -7,8 +7,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	compute "google.golang.org/api/compute/v1"
@@ -40,16 +42,21 @@ type ClusterUninstaller struct {
 	iamSvc     *iam.Service
 	dnsSvc     *dns.Service
 	storageSvc *storage.Service
+
+	requestIDs   map[string]string
+	pendingItems map[string]sets.String
 }
 
 // New returns an AWS destroyer from ClusterMetadata.
 func New(logger logrus.FieldLogger, metadata *types.ClusterMetadata) (providers.Destroyer, error) {
 	return &ClusterUninstaller{
-		Logger:    logger,
-		Region:    metadata.ClusterPlatformMetadata.GCP.Region,
-		ProjectID: metadata.ClusterPlatformMetadata.GCP.ProjectID,
-		ClusterID: metadata.InfraID,
-		Context:   context.Background(),
+		Logger:       logger,
+		Region:       metadata.ClusterPlatformMetadata.GCP.Region,
+		ProjectID:    metadata.ClusterPlatformMetadata.GCP.ProjectID,
+		ClusterID:    metadata.InfraID,
+		Context:      context.Background(),
+		requestIDs:   map[string]string{},
+		pendingItems: map[string]sets.String{},
 	}, nil
 }
 
@@ -99,7 +106,7 @@ func (o *ClusterUninstaller) Run() error {
 func (o *ClusterUninstaller) destroyCluster() (bool, error) {
 	destroyFuncs := []struct {
 		name    string
-		destroy func() error
+		destroy func() (bool, []error)
 	}{
 		{name: "Compute instances", destroy: o.destroyComputeInstances},
 		{name: "Instance groups", destroy: o.destroyInstanceGroups},
@@ -121,15 +128,17 @@ func (o *ClusterUninstaller) destroyCluster() (bool, error) {
 		{name: "Subnetworks", destroy: o.destroySubNetworks},
 		{name: "Networks", destroy: o.destroyNetworks},
 	}
-	hasErr := false
+	done := true
 	for _, f := range destroyFuncs {
-		err := f.destroy()
-		if err != nil {
-			hasErr = true
+		pending, errs := f.destroy()
+		if pending || len(errs) > 0 {
+			done = false
+		}
+		for _, err := range errs {
 			o.Logger.Debugf("%s: %v", f.name, err)
 		}
 	}
-	return !hasErr, nil
+	return done, nil
 }
 
 func (o *ClusterUninstaller) isClusterResource(name string) bool {
@@ -150,4 +159,38 @@ func isNoOp(err error) bool {
 
 func (o *ClusterUninstaller) contextWithTimeout() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(o.Context, defaultTimeout)
+}
+
+func (o *ClusterUninstaller) requestID(identifier ...string) string {
+	key := strings.Join(identifier, "/")
+	id, exists := o.requestIDs[key]
+	if !exists {
+		id = uuid.New().String()
+		o.requestIDs[key] = id
+	}
+	return id
+}
+
+func (o *ClusterUninstaller) resetRequest(identifier ...string) {
+	key := strings.Join(identifier, "/")
+	if _, exists := o.requestIDs[key]; exists {
+		delete(o.requestIDs, key)
+	}
+}
+
+// getDeletedItems returns items that were previously pending that are no longer in the list
+// of found items. It also resets the list of pending items to the new ones that are found.
+func (o *ClusterUninstaller) getDeletedItems(itemType string, foundItems []string) []string {
+	found := sets.NewString(foundItems...)
+	lastFound, exists := o.pendingItems[itemType]
+	if !exists {
+		lastFound = sets.NewString()
+	}
+	deletedItems := lastFound.Difference(found)
+	o.pendingItems[itemType] = found
+	return deletedItems.List()
+}
+
+func isErrorStatus(code int64) bool {
+	return code < 200 || code >= 300
 }

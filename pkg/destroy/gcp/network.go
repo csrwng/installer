@@ -39,34 +39,45 @@ func (o *ClusterUninstaller) listFirewalls() ([]string, error) {
 	return result, nil
 }
 
-func (o *ClusterUninstaller) deleteFirewall(name string) error {
+func (o *ClusterUninstaller) deleteFirewall(name string) (bool, error) {
 	o.Logger.Debugf("Deleting firewall rule %s", name)
 	ctx, cancel := o.contextWithTimeout()
 	defer cancel()
-	_, err := o.computeSvc.Firewalls.Delete(o.ProjectID, name).Context(ctx).Do()
+	resp, err := o.computeSvc.Firewalls.Delete(o.ProjectID, name).RequestId(o.requestID("firewall", name)).Context(ctx).Do()
 	if err != nil && !isNoOp(err) {
-		return errors.Wrapf(err, "failed to delete firewall %s", name)
+		return false, errors.Wrapf(err, "failed to delete firewall %s", name)
 	}
-	if err == nil {
-		o.Logger.Infof("Deleted firewall %s", name)
+	if resp.Status != "DONE" {
+		o.Logger.Debugf("deletion is pending for firewall %s; progress: %d", name, resp.Progress)
+		return true, nil
 	}
-	return nil
+	if isErrorStatus(resp.HttpErrorStatusCode) {
+		o.resetRequest("firewall", name)
+		return false, errors.Errorf("failed to delete firewall %s with status code: %d", name, resp.HttpErrorStatusCode)
+	}
+	o.Logger.Infof("Deleted firewall %s", name)
+	return false, nil
 }
 
 // destroyFirewalls removes all firewall resources that have a name prefixed
 // with the cluster's infra ID
-func (o *ClusterUninstaller) destroyFirewalls() error {
+func (o *ClusterUninstaller) destroyFirewalls() (bool, []error) {
 	firewalls, err := o.listFirewalls()
 	if err != nil {
-		return err
+		return false, []error{err}
 	}
+	pending := false
+	errs := []error{}
 	for _, firewall := range firewalls {
-		err = o.deleteFirewall(firewall)
+		itemPending, err := o.deleteFirewall(firewall)
+		if itemPending {
+			pending = true
+		}
 		if err != nil {
-			return err
+			errs = append(errs, err)
 		}
 	}
-	return nil
+	return pending, errs
 }
 
 func (o *ClusterUninstaller) listAddresses() ([]string, error) {
@@ -88,34 +99,45 @@ func (o *ClusterUninstaller) listAddresses() ([]string, error) {
 	return result, nil
 }
 
-func (o *ClusterUninstaller) deleteAddress(name string) error {
+func (o *ClusterUninstaller) deleteAddress(name string) (bool, error) {
 	o.Logger.Debugf("Deleting address %s", name)
 	ctx, cancel := o.contextWithTimeout()
 	defer cancel()
-	_, err := o.computeSvc.Addresses.Delete(o.ProjectID, o.Region, name).Context(ctx).Do()
+	resp, err := o.computeSvc.Addresses.Delete(o.ProjectID, o.Region, name).RequestId(o.requestID("address", name)).Context(ctx).Do()
 	if err != nil && !isNoOp(err) {
-		return errors.Wrapf(err, "failed to delete address %s", name)
+		return false, errors.Wrapf(err, "failed to delete address %s", name)
 	}
-	if err == nil {
-		o.Logger.Infof("Deleted address %s", name)
+	if resp.Status != "DONE" {
+		o.Logger.Debugf("deletion is pending for address %s; progress: %d", name, resp.Progress)
+		return true, nil
 	}
-	return nil
+	if isErrorStatus(resp.HttpErrorStatusCode) {
+		o.resetRequest("address", name)
+		return false, errors.Errorf("failed to delete address %s with status code: %d", name, resp.HttpErrorStatusCode)
+	}
+	o.Logger.Infof("Deleted address %s", name)
+	return false, nil
 }
 
 // destroyAddresses removes all address resources that have a name prefixed with the
 // cluster's infra ID
-func (o *ClusterUninstaller) destroyAddresses() error {
+func (o *ClusterUninstaller) destroyAddresses() (bool, []error) {
 	addresses, err := o.listAddresses()
 	if err != nil {
-		return err
+		return false, []error{err}
 	}
+	pending := false
+	errs := []error{}
 	for _, address := range addresses {
-		err = o.deleteAddress(address)
+		itemPending, err := o.deleteAddress(address)
+		if itemPending {
+			pending = true
+		}
 		if err != nil {
-			return err
+			errs = append(errs, err)
 		}
 	}
-	return nil
+	return pending, errs
 }
 
 func (o *ClusterUninstaller) listForwardingRules() ([]string, error) {
@@ -137,34 +159,45 @@ func (o *ClusterUninstaller) listForwardingRules() ([]string, error) {
 	return result, nil
 }
 
-func (o *ClusterUninstaller) deleteForwardingRule(name string) error {
+func (o *ClusterUninstaller) deleteForwardingRule(name string) (bool, error) {
 	o.Logger.Debugf("Deleting forwarding rule %s", name)
 	ctx, cancel := o.contextWithTimeout()
 	defer cancel()
-	_, err := o.computeSvc.ForwardingRules.Delete(o.ProjectID, o.Region, name).Context(ctx).Do()
+	resp, err := o.computeSvc.ForwardingRules.Delete(o.ProjectID, o.Region, name).RequestId(o.requestID("forwardingrule", name)).Context(ctx).Do()
 	if err != nil && !isNoOp(err) {
-		return errors.Wrapf(err, "failed to delete forwarding rule %s", name)
+		return false, errors.Wrapf(err, "failed to delete forwarding rule %s", name)
 	}
-	if err == nil {
-		o.Logger.Infof("Deleted forwarding rule %s", name)
+	if resp.Status != "DONE" {
+		o.Logger.Debugf("deletion is pending for forwarding rule %s; progress: %d", name, resp.Progress)
+		return true, nil
 	}
-	return nil
+	if isErrorStatus(resp.HttpErrorStatusCode) {
+		o.resetRequest("forwardingrule", name)
+		return false, errors.Errorf("failed to delete forwarding rule %s with status code: %d", name, resp.HttpErrorStatusCode)
+	}
+	o.Logger.Infof("Deleted forwarding rule %s", name)
+	return false, nil
 }
 
 // destroyForwardingRules removes all forwarding rules with a name prefixed with the
 // cluster's infra ID.
-func (o *ClusterUninstaller) destroyForwardingRules() error {
+func (o *ClusterUninstaller) destroyForwardingRules() (bool, []error) {
 	forwardingRules, err := o.listForwardingRules()
 	if err != nil {
-		return err
+		return false, []error{err}
 	}
+	pending := false
+	errs := []error{}
 	for _, forwardingRule := range forwardingRules {
-		err = o.deleteForwardingRule(forwardingRule)
+		itemPending, err := o.deleteForwardingRule(forwardingRule)
+		if itemPending {
+			pending = true
+		}
 		if err != nil {
-			return err
+			errs = append(errs, err)
 		}
 	}
-	return nil
+	return pending, errs
 }
 
 func (o *ClusterUninstaller) listBackendServices() ([]string, error) {
@@ -199,34 +232,45 @@ func (o *ClusterUninstaller) listBackendServicesWithFilter(fields string, filter
 	return result, nil
 }
 
-func (o *ClusterUninstaller) deleteBackendService(name string) error {
+func (o *ClusterUninstaller) deleteBackendService(name string) (bool, error) {
 	o.Logger.Debugf("Deleting backend service %s", name)
 	ctx, cancel := o.contextWithTimeout()
 	defer cancel()
-	_, err := o.computeSvc.RegionBackendServices.Delete(o.ProjectID, o.Region, name).Context(ctx).Do()
+	resp, err := o.computeSvc.RegionBackendServices.Delete(o.ProjectID, o.Region, name).RequestId(o.requestID("backendservice", name)).Context(ctx).Do()
 	if err != nil && !isNoOp(err) {
-		return errors.Wrapf(err, "failed to delete backend service %s", name)
+		return false, errors.Wrapf(err, "failed to delete backend service %s", name)
 	}
-	if err == nil {
-		o.Logger.Infof("Deleted backend service %s", name)
+	if resp.Status != "DONE" {
+		o.Logger.Debugf("deletion is pending for backend service %s; progress: %d", name, resp.Progress)
+		return true, nil
 	}
-	return nil
+	if isErrorStatus(resp.HttpErrorStatusCode) {
+		o.resetRequest("backendservice", name)
+		return false, errors.Errorf("failed to delete backend service %s with status code: %d", name, resp.HttpErrorStatusCode)
+	}
+	o.Logger.Infof("Deleted backend service %s", name)
+	return false, nil
 }
 
 // destroyBackendServices removes backend services with a name prefixed by the
 // cluster's infra ID.
-func (o *ClusterUninstaller) destroyBackendServices() error {
+func (o *ClusterUninstaller) destroyBackendServices() (bool, []error) {
 	backendServices, err := o.listBackendServices()
 	if err != nil {
-		return err
+		return false, []error{err}
 	}
+	pending := false
+	errs := []error{}
 	for _, backendService := range backendServices {
-		err = o.deleteBackendService(backendService)
+		itemPending, err := o.deleteBackendService(backendService)
+		if itemPending {
+			pending = true
+		}
 		if err != nil {
-			return err
+			errs = append(errs, err)
 		}
 	}
-	return nil
+	return pending, errs
 }
 
 func (o *ClusterUninstaller) listHealthChecks() ([]string, error) {
@@ -248,31 +292,44 @@ func (o *ClusterUninstaller) listHealthChecks() ([]string, error) {
 	return result, nil
 }
 
-func (o *ClusterUninstaller) deleteHealthCheck(name string) error {
+func (o *ClusterUninstaller) deleteHealthCheck(name string) (bool, error) {
 	o.Logger.Debugf("Deleting health check %s", name)
 	ctx, cancel := o.contextWithTimeout()
 	defer cancel()
-	_, err := o.computeSvc.HealthChecks.Delete(o.ProjectID, name).Context(ctx).Do()
+	resp, err := o.computeSvc.HealthChecks.Delete(o.ProjectID, name).RequestId(o.requestID("healthcheck", name)).Context(ctx).Do()
 	if err != nil && !isNoOp(err) {
-		return errors.Wrapf(err, "failed to delete health check %s", name)
+		return false, errors.Wrapf(err, "failed to delete health check %s", name)
 	}
-	return nil
+	if resp.Status != "DONE" {
+		o.Logger.Debugf("deletion is pending for health check %s; progress: %d", name, resp.Progress)
+		return true, nil
+	}
+	if isErrorStatus(resp.HttpErrorStatusCode) {
+		o.resetRequest("healthcheck", name)
+		return false, errors.Errorf("failed to delete health check %s with status code: %d", name, resp.HttpErrorStatusCode)
+	}
+	return false, nil
 }
 
 // destroyHealthChecks removes all health check resources that have a name prefixed
 // with the cluster's infra ID
-func (o *ClusterUninstaller) destroyHealthChecks() error {
+func (o *ClusterUninstaller) destroyHealthChecks() (bool, []error) {
 	healthChecks, err := o.listHealthChecks()
 	if err != nil {
-		return err
+		return false, []error{err}
 	}
+	pending := false
+	errs := []error{}
 	for _, healthCheck := range healthChecks {
-		err = o.deleteHealthCheck(healthCheck)
+		itemPending, err := o.deleteHealthCheck(healthCheck)
+		if itemPending {
+			pending = true
+		}
 		if err != nil {
-			return err
+			errs = append(errs, err)
 		}
 	}
-	return nil
+	return pending, errs
 }
 
 func (o *ClusterUninstaller) listHTTPHealthChecks() ([]string, error) {
@@ -294,34 +351,45 @@ func (o *ClusterUninstaller) listHTTPHealthChecks() ([]string, error) {
 	return result, nil
 }
 
-func (o *ClusterUninstaller) deleteHTTPHealthCheck(name string) error {
+func (o *ClusterUninstaller) deleteHTTPHealthCheck(name string) (bool, error) {
 	o.Logger.Debugf("Deleting HTTP health check %s", name)
 	ctx, cancel := o.contextWithTimeout()
 	defer cancel()
-	_, err := o.computeSvc.HttpHealthChecks.Delete(o.ProjectID, name).Context(ctx).Do()
+	resp, err := o.computeSvc.HttpHealthChecks.Delete(o.ProjectID, name).RequestId(o.requestID("httphealthcheck", name)).Context(ctx).Do()
 	if err != nil && !isNoOp(err) {
-		return errors.Wrapf(err, "failed to delete HTTP health check %s", name)
+		return false, errors.Wrapf(err, "failed to delete HTTP health check %s", name)
 	}
-	if err == nil {
-		o.Logger.Infof("Deleted HTTP health check %s", name)
+	if resp.Status != "DONE" {
+		o.Logger.Debugf("deletion is pending for HTTP health check %s; progress: %d", name, resp.Progress)
+		return true, nil
 	}
-	return nil
+	if isErrorStatus(resp.HttpErrorStatusCode) {
+		o.resetRequest("httphealthcheck", name)
+		return false, errors.Errorf("failed to delete HTTP health check %s with status code: %d", name, resp.HttpErrorStatusCode)
+	}
+	o.Logger.Infof("Deleted HTTP health check %s", name)
+	return false, nil
 }
 
 // destroyHTTPHealthChecks removes all HTTP health check resources that have a name prefixed
 // with the cluster's infra ID
-func (o *ClusterUninstaller) destroyHTTPHealthChecks() error {
+func (o *ClusterUninstaller) destroyHTTPHealthChecks() (bool, []error) {
 	healthChecks, err := o.listHTTPHealthChecks()
 	if err != nil {
-		return err
+		return false, []error{err}
 	}
+	pending := false
+	errs := []error{}
 	for _, healthCheck := range healthChecks {
-		err = o.deleteHTTPHealthCheck(healthCheck)
+		itemPending, err := o.deleteHTTPHealthCheck(healthCheck)
+		if itemPending {
+			pending = true
+		}
 		if err != nil {
-			return err
+			errs = append(errs, err)
 		}
 	}
-	return nil
+	return pending, errs
 }
 
 func (o *ClusterUninstaller) listTargetPools() ([]string, error) {
@@ -352,35 +420,46 @@ func (o *ClusterUninstaller) listTargetPoolsWithFilter(field string, filter stri
 	return result, nil
 }
 
-func (o *ClusterUninstaller) deleteTargetPool(name string) error {
+func (o *ClusterUninstaller) deleteTargetPool(name string) (bool, error) {
 	o.Logger.Debugf("Deleting target pool %s", name)
 	ctx, cancel := o.contextWithTimeout()
 	defer cancel()
-	_, err := o.computeSvc.TargetPools.Delete(o.ProjectID, o.Region, name).Context(ctx).Do()
+	resp, err := o.computeSvc.TargetPools.Delete(o.ProjectID, o.Region, name).RequestId(o.requestID("targetpool", name)).Context(ctx).Do()
 	if err != nil && !isNoOp(err) {
-		return errors.Wrapf(err, "failed to delete target pool %s", name)
+		return false, errors.Wrapf(err, "failed to delete target pool %s", name)
 	}
-	if err == nil {
-		o.Logger.Infof("Deleted target pool %s", name)
+	if resp.Status != "DONE" {
+		o.Logger.Debugf("deletion is pending for target pool %s; progress: %d", name, resp.Progress)
+		return true, nil
 	}
-	return nil
+	if isErrorStatus(resp.HttpErrorStatusCode) {
+		o.resetRequest("targetpool", name)
+		return false, errors.Errorf("failed to delete route %s with status code: %d", name, resp.HttpErrorStatusCode)
+	}
+	o.Logger.Infof("Deleted target pool %s", name)
+	return false, nil
 }
 
 // destroyTargetPools removes target pools created for external load balancers that have
 // a name that starts with the cluster infra ID. These are load balancers created by the
 // installer or cluster operators.
-func (o *ClusterUninstaller) destroyTargetPools() error {
+func (o *ClusterUninstaller) destroyTargetPools() (bool, []error) {
 	targetPools, err := o.listTargetPools()
 	if err != nil {
-		return err
+		return false, []error{err}
 	}
+	pending := false
+	errs := []error{}
 	for _, targetPool := range targetPools {
-		err = o.deleteTargetPool(targetPool)
+		itemPending, err := o.deleteTargetPool(targetPool)
+		if itemPending {
+			pending = true
+		}
 		if err != nil {
-			return err
+			errs = append(errs, err)
 		}
 	}
-	return nil
+	return pending, errs
 }
 
 func (o *ClusterUninstaller) listSubNetworks() ([]string, error) {
@@ -402,34 +481,45 @@ func (o *ClusterUninstaller) listSubNetworks() ([]string, error) {
 	return result, nil
 }
 
-func (o *ClusterUninstaller) deleteSubNetwork(name string) error {
+func (o *ClusterUninstaller) deleteSubNetwork(name string) (bool, error) {
 	o.Logger.Debugf("Deleting subnetwork %s", name)
 	ctx, cancel := o.contextWithTimeout()
 	defer cancel()
-	_, err := o.computeSvc.Subnetworks.Delete(o.ProjectID, o.Region, name).Context(ctx).Do()
+	resp, err := o.computeSvc.Subnetworks.Delete(o.ProjectID, o.Region, name).RequestId(o.requestID("subnetwork", name)).Context(ctx).Do()
 	if err != nil && !isNoOp(err) {
-		return errors.Wrapf(err, "failed to delete subnetwork %s", name)
+		return false, errors.Wrapf(err, "failed to delete subnetwork %s", name)
 	}
-	if err == nil {
-		o.Logger.Infof("Deleted subnetwork %s", name)
+	if resp.Status != "DONE" {
+		o.Logger.Debugf("deletion is pending for subnetwork %s; progress: %d", name, resp.Progress)
+		return true, nil
 	}
-	return nil
+	if isErrorStatus(resp.HttpErrorStatusCode) {
+		o.resetRequest("subnetwork", name)
+		return false, errors.Errorf("failed to delete subnetwork %s with status code: %d", name, resp.HttpErrorStatusCode)
+	}
+	o.Logger.Infof("Deleted subnetwork %s", name)
+	return false, nil
 }
 
 // destroySubNetworks removes all subnetwork resources that have a name prefixed
 // with the cluster's infra ID
-func (o *ClusterUninstaller) destroySubNetworks() error {
+func (o *ClusterUninstaller) destroySubNetworks() (bool, []error) {
 	subNetworks, err := o.listSubNetworks()
 	if err != nil {
-		return err
+		return false, []error{err}
 	}
+	pending := false
+	errs := []error{}
 	for _, subNetwork := range subNetworks {
-		err = o.deleteSubNetwork(subNetwork)
+		itemPending, err := o.deleteSubNetwork(subNetwork)
+		if itemPending {
+			pending = true
+		}
 		if err != nil {
-			return err
+			errs = append(errs, err)
 		}
 	}
-	return nil
+	return pending, errs
 }
 
 func (o *ClusterUninstaller) listNetworks() ([]nameAndURL, error) {
@@ -454,45 +544,62 @@ func (o *ClusterUninstaller) listNetworks() ([]nameAndURL, error) {
 	return result, nil
 }
 
-func (o *ClusterUninstaller) deleteNetwork(name string) error {
-	o.Logger.Debugf("Deleting network %s", name)
+func (o *ClusterUninstaller) deleteNetwork(name string) (bool, error) {
 	ctx, cancel := o.contextWithTimeout()
 	defer cancel()
-	_, err := o.computeSvc.Networks.Delete(o.ProjectID, name).Context(ctx).Do()
+
+	o.Logger.Debugf("Deleting network %s", name)
+	resp, err := o.computeSvc.Networks.Delete(o.ProjectID, name).RequestId(o.requestID("network", name)).Context(ctx).Do()
 	if err != nil && !isNoOp(err) {
-		return errors.Wrapf(err, "failed to delete network %s", name)
+		return false, errors.Wrapf(err, "failed to delete network %s", name)
 	}
-	if err == nil {
-		o.Logger.Infof("Deleted network %s", name)
+	if resp.Status != "DONE" {
+		o.Logger.Debugf("deletion is pending for network %s; progress: %d", name, resp.Progress)
+		return true, nil
 	}
-	return nil
+	if isErrorStatus(resp.HttpErrorStatusCode) {
+		o.resetRequest("network", name)
+		return false, errors.Errorf("failed to delete network %s with status code: %d", name, resp.HttpErrorStatusCode)
+	}
+	o.Logger.Infof("Deleted network %s", name)
+	return false, nil
 }
 
 // destroyNetworks removes all vpc network resources prefixed with the
 // cluster's infra ID
-func (o *ClusterUninstaller) destroyNetworks() error {
+func (o *ClusterUninstaller) destroyNetworks() (bool, []error) {
 	networks, err := o.listNetworks()
 	if err != nil {
-		return err
+		return false, []error{err}
 	}
+	pending := false
+	errs := []error{}
 	for _, network := range networks {
 		// destroy any network routes that are not named with the infra ID
 		routes, err := o.listNetworkRoutes(network.url)
 		if err != nil {
-			return err
+			errs = append(errs, err)
+			continue
 		}
 		for _, route := range routes {
-			if err = o.deleteRoute(route); err != nil {
+			itemPending, err := o.deleteRoute(route)
+			if itemPending {
+				pending = true
+			}
+			if err != nil {
 				o.Logger.Debugf("Failed to delete route %s: %v", route, err)
 			}
 		}
 
-		err = o.deleteNetwork(network.name)
+		itemPending, err := o.deleteNetwork(network.name)
+		if itemPending {
+			pending = true
+		}
 		if err != nil {
-			return err
+			errs = append(errs, err)
 		}
 	}
-	return nil
+	return pending, errs
 }
 
 func (o *ClusterUninstaller) listNetworkRoutes(networkURL string) ([]string, error) {
@@ -522,34 +629,45 @@ func (o *ClusterUninstaller) listRoutesWithFilter(filter string) ([]string, erro
 	return result, nil
 }
 
-func (o *ClusterUninstaller) deleteRoute(name string) error {
+func (o *ClusterUninstaller) deleteRoute(name string) (bool, error) {
 	o.Logger.Debugf("Deleting route %s", name)
 	ctx, cancel := o.contextWithTimeout()
 	defer cancel()
-	_, err := o.computeSvc.Routes.Delete(o.ProjectID, name).Context(ctx).Do()
+	resp, err := o.computeSvc.Routes.Delete(o.ProjectID, name).RequestId(o.requestID("route", name)).Context(ctx).Do()
 	if err != nil && !isNoOp(err) {
-		return errors.Wrapf(err, "failed to delete route %s", name)
+		return false, errors.Wrapf(err, "failed to delete route %s", name)
 	}
-	if err == nil {
-		o.Logger.Infof("Deleted route %s", name)
+	if resp.Status != "DONE" {
+		o.Logger.Debugf("deletion is pending for route %s; progress: %d", name, resp.Progress)
+		return true, nil
 	}
-	return nil
+	if isErrorStatus(resp.HttpErrorStatusCode) {
+		o.resetRequest("route", name)
+		return false, errors.Errorf("failed to delete route %s with status code: %d", name, resp.HttpErrorStatusCode)
+	}
+	o.Logger.Infof("Deleted route %s", name)
+	return false, nil
 }
 
 // destroyRutes removes all route resources that have a name prefixed with the
 // cluster's infra ID
-func (o *ClusterUninstaller) destroyRoutes() error {
+func (o *ClusterUninstaller) destroyRoutes() (bool, []error) {
 	routes, err := o.listRoutes()
 	if err != nil {
-		return err
+		return false, []error{err}
 	}
+	pending := false
+	errs := []error{}
 	for _, route := range routes {
-		err = o.deleteRoute(route)
+		itemPending, err := o.deleteRoute(route)
+		if itemPending {
+			pending = true
+		}
 		if err != nil {
-			return err
+			errs = append(errs, err)
 		}
 	}
-	return nil
+	return pending, errs
 }
 
 func (o *ClusterUninstaller) listRouters() ([]string, error) {
@@ -571,34 +689,45 @@ func (o *ClusterUninstaller) listRouters() ([]string, error) {
 	return result, nil
 }
 
-func (o *ClusterUninstaller) deleteRouter(name string) error {
+func (o *ClusterUninstaller) deleteRouter(name string) (bool, error) {
 	o.Logger.Debugf("Deleting router %s", name)
 	ctx, cancel := o.contextWithTimeout()
 	defer cancel()
-	_, err := o.computeSvc.Routers.Delete(o.ProjectID, o.Region, name).Context(ctx).Do()
+	resp, err := o.computeSvc.Routers.Delete(o.ProjectID, o.Region, name).RequestId(o.requestID("router", name)).Context(ctx).Do()
 	if err != nil && !isNoOp(err) {
-		return errors.Wrapf(err, "failed to delete router %s", name)
+		return false, errors.Wrapf(err, "failed to delete router %s", name)
 	}
-	if err == nil {
-		o.Logger.Infof("Deleted router %s", name)
+	if resp.Status != "DONE" {
+		o.Logger.Debugf("deletion is pending for router %s; progress: %d", name, resp.Progress)
+		return true, nil
 	}
-	return nil
+	if isErrorStatus(resp.HttpErrorStatusCode) {
+		o.resetRequest("router", name)
+		return false, errors.Errorf("failed to delete router %s with status code: %d", name, resp.HttpErrorStatusCode)
+	}
+	o.Logger.Infof("Deleted router %s", name)
+	return false, nil
 }
 
 // destroyRouters removes all router resources that have a name prefixed with the
 // cluster's infra ID
-func (o *ClusterUninstaller) destroyRouters() error {
+func (o *ClusterUninstaller) destroyRouters() (bool, []error) {
 	routers, err := o.listRouters()
 	if err != nil {
-		return err
+		return false, []error{err}
 	}
+	pending := false
+	errs := []error{}
 	for _, router := range routers {
-		err = o.deleteRouter(router)
+		itemPending, err := o.deleteRouter(router)
+		if itemPending {
+			pending = true
+		}
 		if err != nil {
-			return err
+			errs = append(errs, err)
 		}
 	}
-	return nil
+	return pending, errs
 }
 
 // getInternalLBInstanceGroups finds instance groups created for kube cloud controller
@@ -676,51 +805,51 @@ func (o *ClusterUninstaller) listBackendServicesForInstanceGroups(igs []nameAndZ
 // deleteInternalLoadBalancer follows a similar cleanup procedure as:
 // https://github.com/openshift/kubernetes/blob/1e5983903742f64bca36a464582178c940353e9a/pkg/cloudprovider/providers/gce/gce_loadbalancer_internal.go#L222
 // TODO: add cleanup for shared mode resources (determine if it's supported in 4.2)
-func (o *ClusterUninstaller) deleteInternalLoadBalancer(clusterID string, loadBalancerName string) error {
-	if err := o.deleteAddress(loadBalancerName); err != nil {
-		return err
+func (o *ClusterUninstaller) deleteInternalLoadBalancer(clusterID string, loadBalancerName string) (bool, error) {
+	if pending, err := o.deleteAddress(loadBalancerName); pending || err != nil {
+		return pending, err
 	}
-	if err := o.deleteForwardingRule(loadBalancerName); err != nil {
-		return err
+	if pending, err := o.deleteForwardingRule(loadBalancerName); pending || err != nil {
+		return pending, err
 	}
 	// TODO: Figure out a way to preserve the backend service name after this is
 	// gone. Otherwise we can't find this internal load balancer again. However,
 	// the backend service must be deleted first before health checks.
-	if err := o.deleteBackendService(loadBalancerName); err != nil {
-		return err
+	if pending, err := o.deleteBackendService(loadBalancerName); pending || err != nil {
+		return pending, err
 	}
-	if err := o.deleteHealthCheck(loadBalancerName); err != nil {
-		return err
+	if pending, err := o.deleteHealthCheck(loadBalancerName); pending || err != nil {
+		return pending, err
 	}
-	if err := o.deleteHealthCheck(loadBalancerName + "-hc"); err != nil {
-		return err
+	if pending, err := o.deleteHealthCheck(loadBalancerName + "-hc"); pending || err != nil {
+		return pending, err
 	}
-	if err := o.deleteFirewall(loadBalancerName + "-hc"); err != nil {
-		return err
+	if pending, err := o.deleteFirewall(loadBalancerName + "-hc"); pending || err != nil {
+		return pending, err
 	}
-	return nil
+	return false, nil
 }
 
 // deleteExternalLoadBalancer follows a similar cleanup procedure as:
 // https://github.com/openshift/kubernetes/blob/1e5983903742f64bca36a464582178c940353e9a/pkg/cloudprovider/providers/gce/gce_loadbalancer_external.go#L289
 // TODO: cleanup nodes health check (using clusterid)
-func (o *ClusterUninstaller) deleteExternalLoadBalancer(loadBalancerName string) error {
-	if err := o.deleteAddress(loadBalancerName); err != nil {
-		return err
+func (o *ClusterUninstaller) deleteExternalLoadBalancer(loadBalancerName string) (bool, error) {
+	if pending, err := o.deleteAddress(loadBalancerName); pending || err != nil {
+		return pending, err
 	}
-	if err := o.deleteForwardingRule(loadBalancerName); err != nil {
-		return err
+	if pending, err := o.deleteForwardingRule(loadBalancerName); pending || err != nil {
+		return pending, err
 	}
-	if err := o.deleteFirewall(fmt.Sprintf("k8s-fw-%s", loadBalancerName)); err != nil {
-		return err
+	if pending, err := o.deleteFirewall(fmt.Sprintf("k8s-fw-%s", loadBalancerName)); pending || err != nil {
+		return pending, err
 	}
-	if err := o.deleteTargetPool(loadBalancerName); err != nil {
-		return err
+	if pending, err := o.deleteTargetPool(loadBalancerName); pending || err != nil {
+		return pending, err
 	}
-	if err := o.deleteHealthCheck(loadBalancerName); err != nil {
-		return err
+	if pending, err := o.deleteHealthCheck(loadBalancerName); pending || err != nil {
+		return pending, err
 	}
-	return nil
+	return false, nil
 }
 
 // destroyCloudControllerInternalLBs removes resources associated with internal load balancers
@@ -728,37 +857,45 @@ func (o *ClusterUninstaller) deleteExternalLoadBalancer(loadBalancerName string)
 // belonging to this cluster, then finds backend resources that point to these instance groups.
 // For each of those backend services, resources like forwarding rules, firewalls, health checks and
 // backend services are removed.
-func (o *ClusterUninstaller) destroyCloudControllerInternalLBs() error {
+func (o *ClusterUninstaller) destroyCloudControllerInternalLBs() (bool, []error) {
 	groups, err := o.getInternalLBInstanceGroups()
 	if err != nil {
-		return err
+		return false, []error{err}
 	}
 	if len(groups) == 0 {
-		return nil
+		return false, nil
 	}
 	clusterID := strings.TrimPrefix(groups[0].name, "k8s-ig--")
 	backends, err := o.listBackendServicesForInstanceGroups(groups)
 	if err != nil {
-		return err
+		return false, []error{err}
 	}
 
+	pending := false
+	errs := []error{}
 	// Each backend found represents an internal load balancer.
 	// For each, remove related resources
 	for _, backend := range backends {
-		err := o.deleteInternalLoadBalancer(clusterID, backend)
-		if err != nil {
-			return err
+		itemPending, err := o.deleteInternalLoadBalancer(clusterID, backend)
+		if itemPending {
+			pending = true
 		}
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if pending || len(errs) > 0 {
+		return pending, errs
 	}
 
 	// Finally, remove the instance groups {
 	for _, group := range groups {
 		err := o.deleteInstanceGroup(group)
 		if err != nil {
-			return err
+			errs = append(errs, err)
 		}
 	}
-	return nil
+	return pending, errs
 }
 
 // getExternalLBTargetPools returns all target pools that point to instances in the cluster
@@ -781,18 +918,23 @@ func (o *ClusterUninstaller) getExternalLBTargetPools() ([]string, error) {
 // created by the kube cloud controller. It first finds target pools associated with instances
 // belonging to this cluster. For each of those target pools, it removes resources like
 // addresses, forwarding rules, firewalls, health checks and target pools.
-func (o *ClusterUninstaller) destroyCloudControllerExternalLBs() error {
+func (o *ClusterUninstaller) destroyCloudControllerExternalLBs() (bool, []error) {
 	pools, err := o.getExternalLBTargetPools()
 	if err != nil {
-		return err
+		return false, []error{err}
 	}
 
+	pending := false
+	errs := []error{}
 	for _, loadBalancerName := range pools {
-		err = o.deleteExternalLoadBalancer(loadBalancerName)
+		itemPending, err := o.deleteExternalLoadBalancer(loadBalancerName)
+		if itemPending {
+			pending = true
+		}
 		if err != nil {
-			return err
+			errs = append(errs, err)
 		}
 	}
 
-	return nil
+	return pending, errs
 }

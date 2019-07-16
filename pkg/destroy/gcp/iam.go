@@ -47,16 +47,17 @@ func (o *ClusterUninstaller) deleteServiceAccount(serviceAccount string) error {
 
 // destroyServiceAccounts removes service accounts with a display name that starts
 // with the cluster's infra ID.
-func (o *ClusterUninstaller) destroyServiceAccounts() error {
+func (o *ClusterUninstaller) destroyServiceAccounts() (bool, []error) {
 	serviceAccounts, err := o.listServiceAccounts()
 	if err != nil {
-		return err
+		return false, []error{err}
 	}
+	errs := []error{}
 	for _, serviceAccount := range serviceAccounts {
 		err := o.deleteServiceAccount(serviceAccount)
 		if err != nil {
-			return err
+			errs = append(errs, err)
 		}
 	}
-	return nil
+	return false, errs
 }
