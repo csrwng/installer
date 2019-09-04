@@ -65,6 +65,15 @@ var (
 		assets: targetassets.Manifests,
 	}
 
+	hostedManifestsTarget = target{
+		name: "Hosted Manifests",
+		command: &cobra.Command{
+			Use:   "hosted",
+			Short: "Generates assets needed for a hosted deployment of OpenShift",
+		},
+		assets: targetassets.HostedManifests,
+	}
+
 	ignitionConfigsTarget = target{
 		name: "Ignition Configs",
 		command: &cobra.Command{
@@ -117,7 +126,7 @@ var (
 		assets: targetassets.Cluster,
 	}
 
-	targets = []target{installConfigTarget, manifestsTarget, ignitionConfigsTarget, clusterTarget}
+	targets = []target{installConfigTarget, manifestsTarget, ignitionConfigsTarget, clusterTarget, hostedManifestsTarget}
 )
 
 func newCreateCmd() *cobra.Command {

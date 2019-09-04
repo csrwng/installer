@@ -3,6 +3,7 @@ package targets
 import (
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/openshift/installer/pkg/asset/cluster"
+	"github.com/openshift/installer/pkg/asset/hosted"
 	"github.com/openshift/installer/pkg/asset/ignition/bootstrap"
 	"github.com/openshift/installer/pkg/asset/ignition/machine"
 	"github.com/openshift/installer/pkg/asset/installconfig"
@@ -27,6 +28,10 @@ var (
 		&machines.Worker{},
 		&manifests.Manifests{},
 		&manifests.Openshift{},
+	}
+
+	HostedManifests = []asset.WritableAsset{
+		&hosted.Cluster{},
 	}
 
 	// ManifestTemplates are the manifest-templates targeted assets.
