@@ -2,7 +2,6 @@ package hosted
 
 import (
 	"github.com/openshift/installer/pkg/asset"
-	// "github.com/openshift/installer/pkg/asset/installconfig"
 )
 
 type Cluster struct {
@@ -18,7 +17,7 @@ func (c *Cluster) Name() string {
 // hosted cluster asset
 func (c *Cluster) Dependencies() []asset.Asset {
 	return []asset.Asset{
-		// &installconfig.InstallConfig{},
+		&BootstrapFiles{},
 		&EtcdOperator{},
 		&EtcdSecrets{},
 	}
@@ -28,12 +27,14 @@ func (c *Cluster) Dependencies() []asset.Asset {
 func (c *Cluster) Generate(dependencies asset.Parents) error {
 	etcdOperator := &EtcdOperator{}
 	etcdSecrets := &EtcdSecrets{}
+	bootstrap := &BootstrapFiles{}
 
-	dependencies.Get(etcdOperator, etcdSecrets)
+	dependencies.Get(etcdOperator, etcdSecrets, bootstrap)
 
 	files := []*asset.File{}
 	files = append(files, etcdOperator.Files()...)
 	files = append(files, etcdSecrets.Files()...)
+	files = append(files, bootstrap.Files()...)
 	c.files = files
 
 	return nil
