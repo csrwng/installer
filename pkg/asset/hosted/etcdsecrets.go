@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"path"
+	"strings"
 	"text/template"
 
 	"github.com/openshift/installer/pkg/asset"
@@ -77,8 +78,17 @@ func (c *EtcdSecrets) Load(f asset.FileFetcher) (bool, error) {
 	return false, nil
 }
 
+var templateFuncs = map[string]interface{}{
+	"indent": indent,
+}
+
+func indent(indention int, v []byte) string {
+	newline := "\n" + strings.Repeat(" ", indention)
+	return strings.Replace(string(v), "\n", newline, -1)
+}
+
 func applyTemplateData(data []byte, templateData interface{}) []byte {
-	template := template.Must(template.New("template").Parse(string(data)))
+	template := template.Must(template.New("template").Funcs(templateFuncs).Parse(string(data)))
 	buf := &bytes.Buffer{}
 	if err := template.Execute(buf, templateData); err != nil {
 		panic(err)

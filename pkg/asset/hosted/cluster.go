@@ -20,6 +20,8 @@ func (c *Cluster) Dependencies() []asset.Asset {
 		&BootstrapFiles{},
 		&EtcdOperator{},
 		&EtcdSecrets{},
+		&ControlPlaneSecrets{},
+		&RenderingScripts{},
 	}
 }
 
@@ -28,13 +30,17 @@ func (c *Cluster) Generate(dependencies asset.Parents) error {
 	etcdOperator := &EtcdOperator{}
 	etcdSecrets := &EtcdSecrets{}
 	bootstrap := &BootstrapFiles{}
+	scripts := &RenderingScripts{}
+	cpSecrets := &ControlPlaneSecrets{}
 
-	dependencies.Get(etcdOperator, etcdSecrets, bootstrap)
+	dependencies.Get(etcdOperator, etcdSecrets, bootstrap, scripts, cpSecrets)
 
 	files := []*asset.File{}
 	files = append(files, etcdOperator.Files()...)
 	files = append(files, etcdSecrets.Files()...)
 	files = append(files, bootstrap.Files()...)
+	files = append(files, scripts.Files()...)
+	files = append(files, cpSecrets.Files()...)
 	c.files = files
 
 	return nil

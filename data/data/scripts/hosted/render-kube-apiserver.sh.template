@@ -1,6 +1,6 @@
 #!/bin/bash
 
-RELEASE_IMAGE_DIGEST="registry.svc.ci.openshift.org/origin/release:4.2"
+RELEASE_IMAGE_DIGEST="{{.ReleaseImage}}"
 	
 image_for() {
    docker run --rm --net=none "${RELEASE_IMAGE_DIGEST}" image "${1}"
