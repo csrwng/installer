@@ -1,7 +1,10 @@
 package hosted
 
 import (
+	"path"
+
 	"github.com/openshift/installer/pkg/asset"
+	"github.com/openshift/installer/pkg/asset/kubeconfig"
 )
 
 type Cluster struct {
@@ -22,6 +25,7 @@ func (c *Cluster) Dependencies() []asset.Asset {
 		&EtcdSecrets{},
 		&ControlPlaneSecrets{},
 		&RenderingScripts{},
+		&kubeconfig.AdminClient{},
 	}
 }
 
@@ -32,8 +36,10 @@ func (c *Cluster) Generate(dependencies asset.Parents) error {
 	bootstrap := &BootstrapFiles{}
 	scripts := &RenderingScripts{}
 	cpSecrets := &ControlPlaneSecrets{}
+	cpSvcCerts := &KubeAPIServerInternalServiceCertKey{}
+	adminClient := &kubeconfig.AdminClient{}
 
-	dependencies.Get(etcdOperator, etcdSecrets, bootstrap, scripts, cpSecrets)
+	dependencies.Get(etcdOperator, etcdSecrets, bootstrap, scripts, cpSecrets, cpSvcCerts, adminClient)
 
 	files := []*asset.File{}
 	files = append(files, etcdOperator.Files()...)
@@ -41,8 +47,14 @@ func (c *Cluster) Generate(dependencies asset.Parents) error {
 	files = append(files, bootstrap.Files()...)
 	files = append(files, scripts.Files()...)
 	files = append(files, cpSecrets.Files()...)
+	files = append(files, adminClient.Files()...)
+	for _, f := range cpSvcCerts.Files() {
+		files = append(files, &asset.File{
+			Filename: path.Join("bootstrap/opt/openshift", f.Filename),
+			Data:     f.Data,
+		})
+	}
 	c.files = files
-
 	return nil
 }
 

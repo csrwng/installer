@@ -34,7 +34,7 @@ func (o *RenderingScripts) Generate(dependencies asset.Parents) error {
 		"ReleaseImage": releaseImage.PullSpec,
 	}
 	for _, f := range []string{
-		"render-kube-apiserver.sh",
+		"render-operand-manifests.sh",
 	} {
 		data, err := getFileContents(path.Join("scripts/hosted", fmt.Sprintf("%s.template", f)))
 		if err != nil {

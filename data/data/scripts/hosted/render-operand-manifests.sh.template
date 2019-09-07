@@ -1,0 +1,50 @@
+#!/bin/bash
+
+RELEASE_IMAGE_DIGEST="{{.ReleaseImage}}"
+	
+image_for() {
+   docker run --rm --net=none "${RELEASE_IMAGE_DIGEST}" image "${1}"
+}
+
+KUBE_APISERVER_OPERATOR_IMAGE=$(image_for cluster-kube-apiserver-operator)
+KUBE_CONTROLLER_MANAGER_OPERATOR_IMAGE=$(image_for cluster-kube-controller-manager-operator)
+KUBE_SCHEDULER_OPERATOR_IMAGE=$(image_for cluster-kube-scheduler-operator)
+OPENSHIFT_HYPERKUBE_IMAGE=$(image_for hyperkube)
+
+docker run  \
+	--volume "$(pwd)/bootstrap/opt/openshift:/assets" \
+	"${KUBE_APISERVER_OPERATOR_IMAGE}" \
+	/usr/bin/cluster-kube-apiserver-operator render \
+	--manifest-etcd-serving-ca=etcd-ca-bundle.crt \
+	--manifest-etcd-server-urls=https://etcd-client:2379 \
+	--manifest-image="${OPENSHIFT_HYPERKUBE_IMAGE}" \
+	--manifest-operator-image="${KUBE_APISERVER_OPERATOR_IMAGE}" \
+	--asset-input-dir=/assets/tls \
+	--asset-output-dir=/assets/kube-apiserver-bootstrap \
+	--config-output-file=/assets/kube-apiserver-bootstrap/config \
+	--cluster-config-file=/assets/manifests/cluster-network-02-config.yml
+
+cp ./bootstrap/opt/openshift/kube-apiserver-bootstrap/hosted-config/* ./hosted
+
+docker run  \
+	--volume "$(pwd)/bootstrap/opt/openshift:/assets" \
+	"${KUBE_CONTROLLER_MANAGER_OPERATOR_IMAGE}" \
+	/usr/bin/cluster-kube-controller-manager-operator render \
+	--manifest-image="${OPENSHIFT_HYPERKUBE_IMAGE}" \
+	--asset-input-dir=/assets/tls \
+	--asset-output-dir=/assets/kube-controller-manager-bootstrap \
+	--config-output-file=/assets/kube-controller-manager-bootstrap/config \
+	--cluster-config-file=/assets/manifests/cluster-network-02-config.yml
+
+cp ./bootstrap/opt/openshift/kube-controller-manager-bootstrap/hosted-config/* ./hosted
+
+docker run  \
+	--volume "$(pwd)/bootstrap/opt/openshift:/assets" \
+	"${KUBE_SCHEDULER_OPERATOR_IMAGE}" \
+	/usr/bin/cluster-kube-scheduler-operator render \
+	--manifest-image="${OPENSHIFT_HYPERKUBE_IMAGE}" \
+	--asset-input-dir=/assets/tls \
+	--asset-output-dir=/assets/kube-scheduler-bootstrap \
+	--config-output-file=/assets/kube-scheduler-bootstrap/config
+
+cp ./bootstrap/opt/openshift/kube-scheduler-bootstrap/hosted-config/* ./hosted
