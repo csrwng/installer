@@ -35,6 +35,8 @@ func (a *EtcdServerKey) Generate(dependencies asset.Parents) error {
 	dnsNames := []string{
 		fmt.Sprintf("*.etcd.%s.svc", ns.ClusterNamespace),
 		fmt.Sprintf("etcd-client.%s.svc", ns.ClusterNamespace),
+		"etcd",
+		"etcd-client",
 		"localhost",
 	}
 
