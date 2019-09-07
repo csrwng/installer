@@ -3,6 +3,5 @@ kind: Secret
 metadata:
   name: control-plane-certificates
 data:
-  {{ range $key, $value := .Files }}{{ $key }}: |
-    {{ $value | indent 4 }}
+  {{ range $key, $value := .Files }}{{ $key }}: {{ $value }}
   {{ end }}

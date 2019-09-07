@@ -1,11 +1,13 @@
 package hosted
 
 import (
+	"fmt"
 	"io/ioutil"
 	"path"
 
 	"github.com/openshift/installer/data"
 	"github.com/openshift/installer/pkg/asset"
+	hostedns "github.com/openshift/installer/pkg/asset/hosted/ns"
 )
 
 const (
@@ -24,13 +26,19 @@ func (o *EtcdOperator) Name() string {
 // Dependencies returns all of the dependencies directly needed by the
 // hosted cluster asset
 func (o *EtcdOperator) Dependencies() []asset.Asset {
-	return []asset.Asset{}
+	return []asset.Asset{
+		&hostedns.Namespace{},
+	}
 }
 
 // Generate creates the manifests needed to launch a hosted cluster
 func (o *EtcdOperator) Generate(dependencies asset.Parents) error {
+
+	ns := &hostedns.Namespace{}
+	dependencies.Get(ns)
+
+	// Process static files
 	for _, f := range []string{
-		"etcd-cluster-role-binding.yaml",
 		"etcd-cluster-role.yaml",
 		"etcd-cluster.yaml",
 		"etcd-operator.yaml",
@@ -42,6 +50,21 @@ func (o *EtcdOperator) Generate(dependencies asset.Parents) error {
 		o.files = append(o.files, &asset.File{
 			Filename: path.Join(hostedDir, f),
 			Data:     data,
+		})
+	}
+
+	//  Process templates
+	templateData := map[string]string{"Namespace": ns.ClusterNamespace}
+	for _, f := range []string{
+		"etcd-cluster-role-binding.yaml",
+	} {
+		data, err := getFileContents(path.Join("manifests/hosted", fmt.Sprintf("%s.template", f)))
+		if err != nil {
+			return err
+		}
+		o.files = append(o.files, &asset.File{
+			Filename: path.Join(hostedDir, f),
+			Data:     applyTemplateData(data, templateData),
 		})
 	}
 	return nil

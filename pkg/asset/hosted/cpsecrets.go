@@ -1,6 +1,7 @@
 package hosted
 
 import (
+	"encoding/base64"
 	"path"
 
 	"github.com/vincent-petithory/dataurl"
@@ -31,14 +32,14 @@ func (o *ControlPlaneSecrets) Generate(dependencies asset.Parents) error {
 	bt := &bootstrap.Bootstrap{}
 	dependencies.Get(bt)
 
-	secretFiles := map[string][]byte{}
+	secretFiles := map[string]string{}
 	for _, file := range bt.Config.Storage.Files {
 		if fileDir := path.Dir(file.Path); fileDir == "/opt/openshift/tls" || fileDir == "/opt/openshift/auth" {
 			u, err := dataurl.DecodeString(file.Contents.Source)
 			if err != nil {
 				return err
 			}
-			secretFiles[path.Base(file.Path)] = u.Data
+			secretFiles[path.Base(file.Path)] = base64.StdEncoding.EncodeToString(u.Data)
 		}
 	}
 	templateData := map[string]interface{}{"Files": secretFiles}
