@@ -24,13 +24,15 @@ func (o *ControlPlaneSecrets) Name() string {
 func (o *ControlPlaneSecrets) Dependencies() []asset.Asset {
 	return []asset.Asset{
 		&bootstrap.Bootstrap{},
+		&KubeAPIServerInternalServiceCertKey{},
 	}
 }
 
 // Generate creates the manifests needed to launch a hosted cluster
 func (o *ControlPlaneSecrets) Generate(dependencies asset.Parents) error {
 	bt := &bootstrap.Bootstrap{}
-	dependencies.Get(bt)
+	cpSvcCerts := &KubeAPIServerInternalServiceCertKey{}
+	dependencies.Get(bt, cpSvcCerts)
 
 	secretFiles := map[string]string{}
 	for _, file := range bt.Config.Storage.Files {
@@ -41,6 +43,9 @@ func (o *ControlPlaneSecrets) Generate(dependencies asset.Parents) error {
 			}
 			secretFiles[path.Base(file.Path)] = base64.StdEncoding.EncodeToString(u.Data)
 		}
+	}
+	for _, file := range cpSvcCerts.Files() {
+		secretFiles[path.Base(file.Filename)] = base64.StdEncoding.EncodeToString(file.Data)
 	}
 	templateData := map[string]interface{}{"Files": secretFiles}
 

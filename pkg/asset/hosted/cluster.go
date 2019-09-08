@@ -25,6 +25,7 @@ func (c *Cluster) Dependencies() []asset.Asset {
 		&EtcdSecrets{},
 		&ControlPlaneSecrets{},
 		&RenderingScripts{},
+		&KubeAPIServerInternalServiceCertKey{},
 		&kubeconfig.AdminClient{},
 	}
 }

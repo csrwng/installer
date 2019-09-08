@@ -24,7 +24,7 @@ docker run  \
 	--config-output-file=/assets/kube-apiserver-bootstrap/config \
 	--cluster-config-file=/assets/manifests/cluster-network-02-config.yml
 
-cp ./bootstrap/opt/openshift/kube-apiserver-bootstrap/hosted-config/* ./hosted
+cp ./bootstrap/opt/openshift/kube-apiserver-bootstrap/hosted-manifests/* ./hosted
 
 docker run  \
 	--volume "$(pwd)/bootstrap/opt/openshift:/assets" \
@@ -36,7 +36,7 @@ docker run  \
 	--config-output-file=/assets/kube-controller-manager-bootstrap/config \
 	--cluster-config-file=/assets/manifests/cluster-network-02-config.yml
 
-cp ./bootstrap/opt/openshift/kube-controller-manager-bootstrap/hosted-config/* ./hosted
+cp ./bootstrap/opt/openshift/kube-controller-manager-bootstrap/hosted-manifests/* ./hosted
 
 docker run  \
 	--volume "$(pwd)/bootstrap/opt/openshift:/assets" \
@@ -47,4 +47,4 @@ docker run  \
 	--asset-output-dir=/assets/kube-scheduler-bootstrap \
 	--config-output-file=/assets/kube-scheduler-bootstrap/config
 
-cp ./bootstrap/opt/openshift/kube-scheduler-bootstrap/hosted-config/* ./hosted
+cp ./bootstrap/opt/openshift/kube-scheduler-bootstrap/hosted-manifests/* ./hosted
