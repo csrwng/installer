@@ -1,15 +1,26 @@
 #!/bin/bash
 
+set -e
+
 RELEASE_IMAGE_DIGEST="{{.ReleaseImage}}"
 	
 image_for() {
    docker run --rm --net=none "${RELEASE_IMAGE_DIGEST}" image "${1}"
 }
 
-KUBE_APISERVER_OPERATOR_IMAGE=$(image_for cluster-kube-apiserver-operator)
-KUBE_CONTROLLER_MANAGER_OPERATOR_IMAGE=$(image_for cluster-kube-controller-manager-operator)
-KUBE_SCHEDULER_OPERATOR_IMAGE=$(image_for cluster-kube-scheduler-operator)
+# KUBE_APISERVER_OPERATOR_IMAGE=$(image_for cluster-kube-apiserver-operator)
+# KUBE_CONTROLLER_MANAGER_OPERATOR_IMAGE=$(image_for cluster-kube-controller-manager-operator)
+# KUBE_SCHEDULER_OPERATOR_IMAGE=$(image_for cluster-kube-scheduler-operator)
+# For now, use operator image replacements
+KUBE_APISERVER_OPERATOR_IMAGE=quay.io/csrwng/cluster-kube-apiserver-operator:hosted
+KUBE_CONTROLLER_MANAGER_OPERATOR_IMAGE=quay.io/csrwng/cluster-kube-controller-manager-operator:hosted
+KUBE_SCHEDULER_OPERATOR_IMAGE=quay.io/csrwng/cluster-kube-scheduler-operator:hosted
 OPENSHIFT_HYPERKUBE_IMAGE=$(image_for hyperkube)
+
+# Ensure we have the latest version of the images
+docker pull "${KUBE_APISERVER_OPERATOR_IMAGE}"
+docker pull "${KUBE_CONTROLLER_MANAGER_OPERATOR_IMAGE}"
+docker pull "${KUBE_SCHEDULER_OPERATOR_IMAGE}"
 
 docker run  \
 	--volume "$(pwd)/bootstrap/opt/openshift:/assets" \
