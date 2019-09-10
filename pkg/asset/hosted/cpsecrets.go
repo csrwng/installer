@@ -2,12 +2,14 @@ package hosted
 
 import (
 	"encoding/base64"
+	"fmt"
 	"path"
 
 	"github.com/vincent-petithory/dataurl"
 
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/openshift/installer/pkg/asset/ignition/bootstrap"
+	"github.com/openshift/installer/pkg/asset/kubeconfig"
 )
 
 type ControlPlaneSecrets struct {
@@ -25,6 +27,7 @@ func (o *ControlPlaneSecrets) Dependencies() []asset.Asset {
 	return []asset.Asset{
 		&bootstrap.Bootstrap{},
 		&KubeAPIServerInternalServiceCertKey{},
+		&kubeconfig.ServiceAdminClient{},
 	}
 }
 
@@ -32,7 +35,8 @@ func (o *ControlPlaneSecrets) Dependencies() []asset.Asset {
 func (o *ControlPlaneSecrets) Generate(dependencies asset.Parents) error {
 	bt := &bootstrap.Bootstrap{}
 	cpSvcCerts := &KubeAPIServerInternalServiceCertKey{}
-	dependencies.Get(bt, cpSvcCerts)
+	svcKubeconfig := &kubeconfig.ServiceAdminClient{}
+	dependencies.Get(bt, cpSvcCerts, svcKubeconfig)
 
 	secretFiles := map[string]string{}
 	for _, file := range bt.Config.Storage.Files {
@@ -47,16 +51,23 @@ func (o *ControlPlaneSecrets) Generate(dependencies asset.Parents) error {
 	for _, file := range cpSvcCerts.Files() {
 		secretFiles[path.Base(file.Filename)] = base64.StdEncoding.EncodeToString(file.Data)
 	}
-	templateData := map[string]interface{}{"Files": secretFiles}
 
-	data, err := getFileContents(path.Join("manifests/hosted/control-plane-certificates.yaml.template"))
-	if err != nil {
-		return err
+	svcKubeconfigEncoded := base64.StdEncoding.EncodeToString(svcKubeconfig.Files()[0].Data)
+
+	templateData := map[string]interface{}{"Files": secretFiles, "ServiceKubeconfig": svcKubeconfigEncoded}
+	for _, file := range []string{
+		"control-plane-certificates.yaml",
+		"internal-kubeconfig.yaml",
+	} {
+		data, err := getFileContents(path.Join("manifests/hosted", fmt.Sprintf("%s.template", file)))
+		if err != nil {
+			return err
+		}
+		o.files = append(o.files, &asset.File{
+			Filename: path.Join("hosted", file),
+			Data:     applyTemplateData(data, templateData),
+		})
 	}
-	o.files = append(o.files, &asset.File{
-		Filename: "hosted/control-plane-certificates.yaml",
-		Data:     applyTemplateData(data, templateData),
-	})
 
 	return nil
 }
