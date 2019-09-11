@@ -8,6 +8,8 @@ image_for() {
    docker run --rm --net=none "${RELEASE_IMAGE_DIGEST}" image "${1}"
 }
 
+docker pull "${RELEASE_IMAGE_DIGEST}"
+
 # KUBE_APISERVER_OPERATOR_IMAGE=$(image_for cluster-kube-apiserver-operator)
 # KUBE_CONTROLLER_MANAGER_OPERATOR_IMAGE=$(image_for cluster-kube-controller-manager-operator)
 # KUBE_SCHEDULER_OPERATOR_IMAGE=$(image_for cluster-kube-scheduler-operator)
