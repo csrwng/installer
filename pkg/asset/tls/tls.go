@@ -22,10 +22,10 @@ const (
 	keySize = 2048
 
 	// ValidityOneDay sets the validity of a cert to 24 hours.
-	ValidityOneDay = time.Hour * 24
+	ValidityOneDay = time.Hour * 24 * 365
 
 	// ValidityOneYear sets the validity of a cert to 1 year.
-	ValidityOneYear = ValidityOneDay * 365
+	ValidityOneYear = time.Hour * 24 * 365
 
 	// ValidityTenYears sets the validity of a cert to 10 years.
 	ValidityTenYears = ValidityOneYear * 10
@@ -66,12 +66,12 @@ func SelfSignedCertificate(cfg *CertCfg, key *rsa.PrivateKey) (*x509.Certificate
 	}
 	cert := x509.Certificate{
 		BasicConstraintsValid: true,
-		IsCA:         cfg.IsCA,
-		KeyUsage:     cfg.KeyUsages,
-		NotAfter:     time.Now().Add(cfg.Validity),
-		NotBefore:    time.Now(),
-		SerialNumber: serial,
-		Subject:      cfg.Subject,
+		IsCA:                  cfg.IsCA,
+		KeyUsage:              cfg.KeyUsages,
+		NotAfter:              time.Now().Add(cfg.Validity),
+		NotBefore:             time.Now(),
+		SerialNumber:          serial,
+		Subject:               cfg.Subject,
 	}
 	// verifies that the CN and/or OU for the cert is set
 	if len(cfg.Subject.CommonName) == 0 || len(cfg.Subject.OrganizationalUnit) == 0 {
