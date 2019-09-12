@@ -18,6 +18,7 @@ KUBE_APISERVER_OPERATOR_IMAGE=quay.io/csrwng/cluster-kube-apiserver-operator:hos
 KUBE_CONTROLLER_MANAGER_OPERATOR_IMAGE=quay.io/csrwng/cluster-kube-controller-manager-operator:hosted
 KUBE_SCHEDULER_OPERATOR_IMAGE=quay.io/csrwng/cluster-kube-scheduler-operator:hosted
 OPENSHIFT_HYPERKUBE_IMAGE=$(image_for hyperkube)
+CONFIG_OPERATOR_IMAGE=$(image_for cluster-config-operator)
 
 # Ensure we have the latest version of the images
 docker pull "${KUBE_APISERVER_OPERATOR_IMAGE}"
@@ -61,3 +62,15 @@ docker run  \
 	--config-output-file=/assets/kube-scheduler-bootstrap/config
 
 cp ./bootstrap/opt/openshift/kube-scheduler-bootstrap/hosted-manifests/* ./hosted
+
+docker run \
+        --volume "$(pwd)/bootstrap/opt/openshift:/assets" \
+	"${CONFIG_OPERATOR_IMAGE}" \
+	/usr/bin/cluster-config-operator render \
+	--config-output-file=/assets/config-bootstrap/config \
+	--asset-input-dir=/assets/tls \
+	--asset-output-dir=/assets/config-bootstrap
+
+mkdir -p ./hosted-manifests
+
+cp ./bootstrap/opt/openshift/config-bootstrap/manifests/* ./hosted-manifests

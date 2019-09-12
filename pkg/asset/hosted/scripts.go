@@ -1,9 +1,10 @@
 package hosted
 
 import (
-	"fmt"
 	"path"
+	"strings"
 
+	"github.com/openshift/installer/data"
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/openshift/installer/pkg/asset/installconfig"
 	"github.com/openshift/installer/pkg/asset/releaseimage"
@@ -38,18 +39,32 @@ func (o *RenderingScripts) Generate(dependencies asset.Parents) error {
 		"BaseDomain":    installConfig.Config.BaseDomain,
 		"ClusterDomain": installConfig.Config.ClusterDomain(),
 	}
-	for _, f := range []string{
-		"render-operand-manifests.sh",
-		"expose-control-plane.sh",
-	} {
-		data, err := getFileContents(path.Join("scripts/hosted", fmt.Sprintf("%s.template", f)))
+
+	dir, err := data.Assets.Open("scripts/hosted")
+	if err != nil {
+		return err
+	}
+	files, err := dir.Readdir(0)
+	if err != nil {
+		return err
+	}
+	for _, f := range files {
+		name := path.Base(f.Name())
+		data, err := getFileContents(path.Join("scripts/hosted", name))
 		if err != nil {
 			return err
 		}
-		o.files = append(o.files, &asset.File{
-			Filename: f,
-			Data:     applyTemplateData(data, templateData),
-		})
+		if strings.HasSuffix(name, ".template") {
+			o.files = append(o.files, &asset.File{
+				Filename: strings.TrimSuffix(name, ".template"),
+				Data:     applyTemplateData(data, templateData),
+			})
+		} else {
+			o.files = append(o.files, &asset.File{
+				Filename: name,
+				Data:     data,
+			})
+		}
 	}
 	return nil
 }

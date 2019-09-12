@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: manifest-applier
+spec:
+  containers:
+  - image: quay.io/openshift/origin-cli:latest
+    imagePullPolicy: IfNotPresent
+    name: cli
+    env:
+    - name: KUBECONFIG
+      value: /var/run/secrets/kubeconfig/kubeconfig
+    command:
+    - /bin/bash
+    args:
+    - -c
+    - |-
+      oc apply -f /data
+    volumeMounts:
+    - mountPath: /var/run/secrets/kubeconfig
+      name: kubeconfig
+      readOnly: true
+    - mountPath: /data
+      name: manifests
+      readOnly: true
+  restartPolicy: OnFailure
+  serviceAccountName: default
+  volumes:
+  - name: kubeconfig
+    secret:
+      secretName: internal-kubeconfig
+  - name: manifests
+    configMap:
+      name: hosted-manifests
