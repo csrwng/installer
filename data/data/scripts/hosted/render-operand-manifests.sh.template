@@ -17,6 +17,7 @@ docker pull "${RELEASE_IMAGE_DIGEST}"
 KUBE_APISERVER_OPERATOR_IMAGE=quay.io/csrwng/cluster-kube-apiserver-operator:hosted
 KUBE_CONTROLLER_MANAGER_OPERATOR_IMAGE=quay.io/csrwng/cluster-kube-controller-manager-operator:hosted
 KUBE_SCHEDULER_OPERATOR_IMAGE=quay.io/csrwng/cluster-kube-scheduler-operator:hosted
+CLUSTER_VERSION_OPERATOR_IMAGE=quay.io/csrwng/origin-cluster-version-operator:hosted
 OPENSHIFT_HYPERKUBE_IMAGE=$(image_for hyperkube)
 CONFIG_OPERATOR_IMAGE=$(image_for cluster-config-operator)
 
@@ -24,6 +25,7 @@ CONFIG_OPERATOR_IMAGE=$(image_for cluster-config-operator)
 docker pull "${KUBE_APISERVER_OPERATOR_IMAGE}"
 docker pull "${KUBE_CONTROLLER_MANAGER_OPERATOR_IMAGE}"
 docker pull "${KUBE_SCHEDULER_OPERATOR_IMAGE}"
+docker pull "${CLUSTER_VERSION_OPERATOR_IMAGE}"
 
 docker run  \
 	--volume "$(pwd)/bootstrap/opt/openshift:/assets" \
@@ -63,6 +65,17 @@ docker run  \
 
 cp ./bootstrap/opt/openshift/kube-scheduler-bootstrap/hosted-manifests/* ./hosted
 
+mkdir -p ./hosted-manifests
+mkdir -p ./bootstrap/opt/openshift/cvo-bootstrap/{bootstrap,bootstrap-hosted,manifests}
+docker run \
+        --volume "$(pwd)/bootstrap/opt/openshift:/assets" \
+	"${CLUSTER_VERSION_OPERATOR_IMAGE}" \
+	render \
+	   --output-dir=/assets/cvo-bootstrap \
+	   --release-image="${RELEASE_IMAGE_DIGEST}"
+cp ./bootstrap/opt/openshift/cvo-bootstrap/manifests/* ./hosted-manifests
+cp ./bootstrap/opt/openshift/cvo-bootstrap/bootstrap-hosted/* ./hosted
+
 docker run \
         --volume "$(pwd)/bootstrap/opt/openshift:/assets" \
 	"${CONFIG_OPERATOR_IMAGE}" \
@@ -70,7 +83,5 @@ docker run \
 	--config-output-file=/assets/config-bootstrap/config \
 	--asset-input-dir=/assets/tls \
 	--asset-output-dir=/assets/config-bootstrap
-
-mkdir -p ./hosted-manifests
 
 cp ./bootstrap/opt/openshift/config-bootstrap/manifests/* ./hosted-manifests
