@@ -22,10 +22,12 @@ const (
 	keySize = 2048
 
 	// ValidityOneDay sets the validity of a cert to 24 hours.
-	ValidityOneDay = time.Hour * 24
+	ValidityOneDay = time.Hour * 2
+
+	ValidityOneRealDay = time.Hour * 24
 
 	// ValidityOneYear sets the validity of a cert to 1 year.
-	ValidityOneYear = ValidityOneDay * 365
+	ValidityOneYear = ValidityOneRealDay * 365
 
 	// ValidityTenYears sets the validity of a cert to 10 years.
 	ValidityTenYears = ValidityOneYear * 10
